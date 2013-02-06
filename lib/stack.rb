@@ -18,6 +18,25 @@ module Stack
     connection
   end
 
+  def Stack.populate_config(config)
+    # build out the full config for each node, supplying defaults from the 
+    # global config if explicitly supplied
+    config[:node_details] = Hash.new if config[:node_details].nil?
+
+    config[:roles].each do |role, role_details|
+      fqdn = role.to_s + '.' + config[:dns_domain]
+      
+      config[:node_details][fqdn] = { 
+        # set the node details from the role, if not specified in the role, use the config global
+        # (takes advantage of left to right evaluation of ||)
+        :flavor_id          => (role_details[:flavor_id] || config[:flavor_id]),
+        :count              => (role_details[:count] || 1),
+        :publish_private_ip => (role_details[:publish_private_ip] || false),
+        :dns_wildcard       => (role_details[:dns_wildcard] || false)
+      }
+    end
+  end
+
   def Stack.generate_hostnames(config)
     stack_hostnames = Array.new
     config[:roles].each do |role, role_details|
@@ -53,7 +72,7 @@ module Stack
                                         :name => fqdn,
                                         :hostname => fqdn,
                                         :availability_zone => config[:availability_zone], 
-                                        :flavor_id => config[:flavor_id],
+                                        :flavor_id => config[:node_details][fqdn],
                                         :image_id => config[:image_id],
                                         :key_name => config[:keypair],
                                         :user_data => user_data,
@@ -102,6 +121,23 @@ module Stack
     end
   end
 
+  def Stack.show_dns(config)
+    # now register it in DNS
+    dns = Fog::DNS.new({ :provider => config[:provider],
+                          :aws_access_key_id => config[:aws_access_key_id],
+                          :aws_secret_access_key => config[:aws_secret_access_key] })
+          
+    zone = dns.zones.get(config[:dns_id])
+    if zone.records.empty?
+      puts "No DNS records found in #{config[:dns_domain]}"
+    else
+      printf("%40s %20s %5s %5s\n", 'fqdn', 'value', 'type', 'ttl')
+      zone.records.each do |record|
+        printf("%40s %20s %5s %5d\n", record.name, record.value, record.type, record.ttl)
+      end
+    end 
+  end
+
   def Stack.get_running(config)
     # create a connection
     connection = Stack.connect(config)
@@ -112,7 +148,7 @@ module Stack
     # Amazon EC2, use the tags hash to find hostnames
     running_instances = Hash.new
     connection.servers.each do |instance|
-      pp instance
+      # pp instance
       if (!instance.tags['Name'].nil? && instance.state != 'terminated' && instance.state != 'shutting-down')
         hostname = instance.tags['Name']
         if stack_hostnames.include?(hostname)
@@ -127,7 +163,7 @@ module Stack
     running_instances = Stack.get_running(config)
     running_instances.each do |instance, instance_details|
       # display some details
-      puts "#{instance} id=#{instance_details.id} public_ip=#{instance_details.public_ip_address} private_ip=#{instance_details.private_ip_address}"
+      puts "#{instance} id=#{instance_details.id} flavor_id=#{instance_details.flavor_id} public_ip=#{instance_details.public_ip_address} private_ip=#{instance_details.private_ip_address}"
     end
   end
     
@@ -139,6 +175,9 @@ module Stack
     pp connection.describe_availability_zones
 
     pp connection.servers
+
+    Stack.populate_config(config)
+    pp config[:node_details]
   end
 
   def upload_keys(config)
@@ -153,7 +192,7 @@ module Stack
     # shutdown all instances
     connection.servers.select do |server| 
       puts "Running server:"
-      pp server
+      # pp server
     #  server.ready? && server.destroy
     end
   end

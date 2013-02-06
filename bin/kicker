@@ -11,6 +11,9 @@ class App
 
   main do |stack|
     config = Stack.load_config(options['configfile'], stack)
+    if config.nil?
+      exit_now!("#{stack} doesn't exist in #{options['configfile']}")
+    end
 
     if options['show-stack']
       puts stack
@@ -20,6 +23,18 @@ class App
 
     if options['show-running']
       Stack.show_running(config)
+    end
+
+    if options['show-details']
+      Stack.show_details(config)
+    end
+
+    if options['show-dns']
+      Stack.show_dns(config)
+    end
+
+    if options['deploy-all']
+      Stack.deploy_all(config)
     end
   end
 
@@ -41,6 +56,7 @@ class App
   options['configfile'] = 'Stackfile'
   on("--configfile configfile", "Specify an alternative to ./Stackfile")
   on("--show-stack", "Show the nodes defined in a stack")
+  on("--show-details", "Show the nodes defined in a stack in detail")
   on("--show-running", "Show the running nodes")
   on("--show-dns", "Show the current DNS config")
   on("--deploy-all", "Deploy the stack, skipping existing nodes")
