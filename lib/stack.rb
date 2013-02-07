@@ -130,7 +130,19 @@ module Stack
       puts "#{instance} id=#{instance_details.id} public_ip=#{instance_details.public_ip_address} private_ip=#{instance_details.private_ip_address}"
     end
   end
-    
+   
+  def Stack.delete_node(config, fqdn)
+    running_instances = Stack.get_running(config)
+    if running_instances[fqdn].nil?
+      puts "ERROR: #{fqdn} isn't running!"
+      exit
+    else
+      connection = Stack.connect(config)
+      pp running_instances[fqdn]
+      running_instances[fqdn].destroy
+    end
+  end
+
   def Stack.show_details(config)
     # create a connection
     connection = Stack.connect(config)

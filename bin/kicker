@@ -21,6 +21,15 @@ class App
     if options['show-running']
       Stack.show_running(config)
     end
+
+    if options['delete-node']
+      info { "delete-node passed #{options['delete-node']}" }
+      Stack.delete_node(config, options['delete-node'])
+    end
+
+    if options['deploy-all']
+      Stack.deploy_all(config)
+    end
   end
 
   # supplemental methods here
@@ -44,8 +53,8 @@ class App
   on("--show-running", "Show the running nodes")
   on("--show-dns", "Show the current DNS config")
   on("--deploy-all", "Deploy the stack, skipping existing nodes")
-  on("--replace NODE", "Replace a give node")
-  on("--delete NODE", "Destroy a node, including any shared CM & DNS")
+  on("--replace-node NODE", "Replace a give node")
+  on("--delete-node NODE", "Destroy a node, including any shared CM & DNS")
   on("--validate", "Validate the config, check as much as possible with out creating nodes")
   
   version Kicker::VERSION
