@@ -14,6 +14,7 @@ Each instance is described in the Stackfile & provisioned using variety of metho
 EC2 Create with user-data, cloud-init from user-data (installs masterless puppet), puppet provision the instance.
 
 Other models could include using a puppet master, Chef Solo or Chef Server/Hosted.
+Amazon EC2 interaction is done through fog, so other providers should be easily added.
 
 The guiding principle is that your Stackfile should be shareable & re-useable by others, and support templates, so that other users can use the template and easily adjust items in the stack (such as the instance size used, DNS Domain updated during deploy, EC2 account & location)
 }
