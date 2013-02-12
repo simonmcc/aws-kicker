@@ -8,9 +8,16 @@ Gem::Specification.new do |gem|
   gem.version       = Kicker::VERSION
   gem.authors       = ["Simon McCartney"]
   gem.email         = ["simon@mccartney.ie"]
-  gem.description   = %q{TODO: Write a gem description}
-  gem.summary       = %q{TODO: Write a gem summary}
-  gem.homepage      = ""
+  gem.description   = %q{Utility for kicking an application stack into life on Amazon EC2}
+  gem.summary       = %q{Stacks are built from a collection of instances required to build an application stack. 
+Each instance is described in the Stackfile & provisioned using variety of methods. Supported models include:
+EC2 Create with user-data, cloud-init from user-data (installs masterless puppet), puppet provision the instance.
+
+Other models could include using a puppet master, Chef Solo or Chef Server/Hosted.
+
+The guiding principle is that your Stackfile should be shareable & re-useable by others, and support templates, so that other users can use the template and easily adjust items in the stack (such as the instance size used, DNS Domain updated during deploy, EC2 account & location)
+}
+  gem.homepage      = "https://github.com/simonmcc/kicker"
 
   gem.files         = `git ls-files`.split($/)
   gem.executables   = gem.files.grep(%r{^bin/}).map{ |f| File.basename(f) }
