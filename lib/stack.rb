@@ -47,6 +47,9 @@ module Stack
   end
 
   def Stack.deploy_all(config)
+    # generate the hostnames & details from the config & apply defaults where required
+    Stack.populate_config(config)
+
     # create a connection
     connection = Stack.connect(config)
 
@@ -67,12 +70,12 @@ module Stack
 
       # pp multipart
       #
-      puts "Bootstraping new instance - #{fqdn}"
+      puts "Bootstraping new instance - #{fqdn}, in #{config[:availability_zone]}"
       server = connection.servers.create({ 
                                         :name => fqdn,
                                         :hostname => fqdn,
                                         :availability_zone => config[:availability_zone], 
-                                        :flavor_id => config[:node_details][fqdn],
+                                        :flavor_id => config[:node_details][fqdn][:flavor_id],
                                         :image_id => config[:image_id],
                                         :key_name => config[:keypair],
                                         :user_data => user_data,
