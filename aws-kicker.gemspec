@@ -4,7 +4,7 @@ $LOAD_PATH.unshift(lib) unless $LOAD_PATH.include?(lib)
 require 'kicker/version'
 
 Gem::Specification.new do |gem|
-  gem.name          = "kicker"
+  gem.name          = "aws-kicker"
   gem.version       = Kicker::VERSION
   gem.authors       = ["Simon McCartney"]
   gem.email         = ["simon@mccartney.ie"]
