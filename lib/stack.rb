@@ -70,7 +70,7 @@ module Stack
 
       # pp multipart
       #
-      puts "Bootstraping new instance - #{fqdn}, in #{config[:availability_zone]}"
+      puts "Bootstraping new instance - #{fqdn}, in #{config[:availability_zone]}, flavor #{config[:node_details][fqdn][:flavor_id]}, image_id #{config[:image_id]}"
       server = connection.servers.create({ 
                                         :name => fqdn,
                                         :hostname => fqdn,
@@ -212,4 +212,11 @@ module Stack
     end
   end
 
+  def Stack.validate(config)
+    # sanity check
+    # check credentials, keys, flavor, image, dns etc
+    connection = Stack.connect(config)
+    pp connection
+    pp connection.images.get(config[:image_id])
+  end
 end
