@@ -1,0 +1,83 @@
+#!/usr/bin/env ruby
+
+require 'optparse'
+require 'methadone'
+require 'aws-kicker'
+require 'stack'
+require 'pp'
+
+class App
+  include Methadone::Main
+  include Methadone::CLILogging
+
+  main do |stack|
+    config = Stack.load_config(options['configfile'], stack)
+    if config.nil?
+      exit_now!("#{stack} doesn't exist in #{options['configfile']}")
+    end
+
+    if options['show-stack']
+      puts stack
+      hostnames = Stack.generate_hostnames(config)
+      hostnames.each { |hostname| puts "    #{hostname}" }
+    end
+
+    if options['show-running']
+      Stack.show_running(config)
+    end
+
+    if options['show-dns']
+      Stack.show_dns(config)
+    end
+
+    if options['show-details']
+      Stack.show_details(config)
+    end
+
+    if options['deploy-all']
+      Stack.deploy_all(config)
+    end
+
+    if options['delete-node']
+      info { "delete-node passed #{options['delete-node']}" }
+      Stack.delete_node(config, options['delete-node'])
+    end
+
+    if options['validate']
+      info { 'Attemptying to validate the config' }
+      Stack.validate(config)
+    end
+  end
+
+  # supplemental methods here
+
+  # Declare command-line interface here
+
+  description "Deploy your stack to the cloud"
+  #
+  # Accept flags via:
+  # on("--flag VAL","Some flag")
+  # on("--flag VAL","Some flag")
+  # options[flag] will contain VAL
+  #
+  # Specify switches via:
+  # on("--[no-]switch","Some switch")
+
+  arg :stack
+  options['configfile'] = 'Stackfile'
+  on("--configfile configfile", "Specify an alternative to ./Stackfile")
+  on("--show-stack", "Show the nodes defined in a stack")
+  on("--show-details", "Show the nodes defined in a stack in detail")
+  on("--show-running", "Show the running nodes")
+  on("--show-dns", "Show the current DNS config")
+  on("--deploy-all", "Deploy the stack, skipping existing nodes")
+  on("--replace-node NODE", "Replace a give node")
+  on("--delete-node NODE", "Destroy a node, including any shared CM & DNS")
+  on("--validate", "Validate the config, check as much as possible with out creating nodes")
+
+  version Aws::Kicker::VERSION
+
+  use_log_level_option
+
+  go!
+end

@@ -1,15 +1,15 @@
 # -*- encoding: utf-8 -*-
 lib = File.expand_path('../lib', __FILE__)
 $LOAD_PATH.unshift(lib) unless $LOAD_PATH.include?(lib)
-require 'kicker/version'
+require 'aws-kicker/version'
 
 Gem::Specification.new do |gem|
   gem.name          = "aws-kicker"
-  gem.version       = Kicker::VERSION
+  gem.version       = Aws::Kicker::VERSION
   gem.authors       = ["Simon McCartney"]
   gem.email         = ["simon@mccartney.ie"]
   gem.description   = %q{Utility for kicking an application stack into life on Amazon EC2}
-  gem.summary       = %q{Stacks are built from a collection of instances required to build an application stack. 
+  gem.summary       = %q{Stacks are built from a collection of instances required to build an application stack.
 Each instance is described in the Stackfile & provisioned using variety of methods. Supported models include:
 EC2 Create with user-data, cloud-init from user-data (installs masterless puppet), puppet provision the instance.
 
@@ -27,6 +27,7 @@ The guiding principle is that your Stackfile should be shareable & re-useable by
   gem.add_development_dependency('rdoc')
   gem.add_development_dependency('aruba')
   gem.add_development_dependency('rake', '~> 0.9.2')
+  gem.add_development_dependency('gem-release')
   gem.add_dependency('methadone', '~> 1.2.4')
-  gem.add_dependency('fog', '~> 1.7.0')
+  gem.add_dependency('fog', '~> 1.12.1')
 end
