@@ -32,6 +32,7 @@ module Stack
   def Stack.populate_config(config)
 
     config[:find_file_paths] = Array.new if config[:find_file_paths].nil?
+    config[:mime_encode_user_data] = true if config[:mime_encode_user_data].nil?
 
     # build out the full config for each node, supplying defaults from the
     # global config if explicitly supplied
@@ -85,8 +86,17 @@ module Stack
       bootstrap_abs = Stack.find_file(config, config[:node_details][fqdn][:bootstrap])
       cloud_config_yaml_abs = Stack.find_file(config, config[:node_details][fqdn][:cloud_config_yaml])
 
-      multipart_cmd = "#{libdir}/write-mime-multipart #{bootstrap_abs} #{cloud_config_yaml_abs}"
-      user_data = `#{multipart_cmd}`
+      if config[:mime_encode_user_data]
+        Logger.debug "mime encoding user-data..."
+        multipart_cmd = "#{libdir}/write-mime-multipart #{bootstrap_abs} #{cloud_config_yaml_abs}"
+        user_data = `#{multipart_cmd}`
+      else
+        # Ubuntu Hardy seems to struggle with some mime-encoded user-data
+        # so allow the user to forse submitting user-data un-mimed,
+        # in which case we can only pass one file & it must be the bootstrap script
+        Logger.debug "mime encoding user-data disabled, only sending the bootstrap script"
+        user_data = File.read(bootstrap_abs)
+      end
 
       user_data.gsub!(/rentpro-unconfigured/, hostname)
       user_data.gsub!(/rentpro-stage.local/, config[:dns_domain])
