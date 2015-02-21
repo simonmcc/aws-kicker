@@ -33,6 +33,7 @@ module Stack
 
     config[:find_file_paths] = Array.new if config[:find_file_paths].nil?
     config[:mime_encode_user_data] = true if config[:mime_encode_user_data].nil?
+    config[:maintain_dns] = true if config[:maintain_dns].nil?
 
     # build out the full config for each node, supplying defaults from the
     # global config if explicitly supplied
@@ -76,68 +77,69 @@ module Stack
       fqdn = role.to_s + '.' + config[:dns_domain]
 
       if !running_instances[fqdn].nil?
-        puts "Skipping #{fqdn} as it already exists"
-        next
-      end
-
-      # Ubuntu 8.04/Hardy doesn't do full cloud-init, so we have to script setting the hostname
-      libdir = File.realpath(@@gemhome + '/lib')
-
-      bootstrap_abs = Stack.find_file(config, config[:node_details][fqdn][:bootstrap])
-      cloud_config_yaml_abs = Stack.find_file(config, config[:node_details][fqdn][:cloud_config_yaml])
-
-      if config[:mime_encode_user_data]
-        Logger.debug "mime encoding user-data..."
-        multipart_cmd = "#{libdir}/write-mime-multipart #{bootstrap_abs} #{cloud_config_yaml_abs}"
-        user_data = `#{multipart_cmd}`
+        Logger.info "Skipping creation od #{fqdn} instance as it already exists"
+        server = running_instances[fqdn]
       else
-        # Ubuntu Hardy seems to struggle with some mime-encoded user-data
-        # so allow the user to forse submitting user-data un-mimed,
-        # in which case we can only pass one file & it must be the bootstrap script
-        Logger.debug "mime encoding user-data disabled, only sending the bootstrap script"
-        user_data = File.read(bootstrap_abs)
+        # Ubuntu 8.04/Hardy doesn't do full cloud-init, so we have to script setting the hostname
+        libdir = File.realpath(@@gemhome + '/lib')
+
+        bootstrap_abs = Stack.find_file(config, config[:node_details][fqdn][:bootstrap])
+        cloud_config_yaml_abs = Stack.find_file(config, config[:node_details][fqdn][:cloud_config_yaml])
+
+        if config[:mime_encode_user_data]
+          Logger.debug "mime encoding user-data..."
+          multipart_cmd = "#{libdir}/write-mime-multipart #{bootstrap_abs} #{cloud_config_yaml_abs}"
+          user_data = `#{multipart_cmd}`
+        else
+          # Ubuntu Hardy seems to struggle with some mime-encoded user-data
+          # so allow the user to forse submitting user-data un-mimed,
+          # in which case we can only pass one file & it must be the bootstrap script
+          Logger.debug "mime encoding user-data disabled, only sending the bootstrap script"
+          user_data = File.read(bootstrap_abs)
+        end
+
+        user_data.gsub!(/rentpro-unconfigured/, hostname)
+        user_data.gsub!(/rentpro-stage.local/, config[:dns_domain])
+
+
+        # pp multipart
+        #
+        puts "Bootstraping new instance - #{fqdn}, in #{config[:availability_zone]}, flavor #{config[:node_details][fqdn][:flavor_id]}, image_id #{config[:image_id]}"
+        server = connection.servers.create({
+                                          :name => fqdn,
+                                          :hostname => fqdn,
+                                          :availability_zone => config[:availability_zone],
+                                          :flavor_id => config[:node_details][fqdn][:flavor_id],
+                                          :image_id => config[:image_id],
+                                          :key_name => config[:keypair],
+                                          :user_data => user_data,
+                                          :tags => { 'Name' => fqdn },
+                                          })
+
+        print "Waiting for instance to be ready..."
+        server.wait_for { ready? }
+        puts "#{role.to_s} is booted, #{server.public_ip_address}/#{server.private_ip_address}"
       end
 
-      user_data.gsub!(/rentpro-unconfigured/, hostname)
-      user_data.gsub!(/rentpro-stage.local/, config[:dns_domain])
+      if config[:maintain_dns]
+        Logger.info "Updating DNS for #{fqdn}"
+        # create/update the public & private DNS for this host
+        Stack.update_dns(role.to_s + '-public.' + config[:dns_domain], server.public_ip_address, config)
+        Stack.update_dns(role.to_s + '-private.' + config[:dns_domain], server.private_ip_address, config)
 
-
-      # pp multipart
-      #
-      puts "Bootstraping new instance - #{fqdn}, in #{config[:availability_zone]}, flavor #{config[:node_details][fqdn][:flavor_id]}, image_id #{config[:image_id]}"
-      server = connection.servers.create({
-                                        :name => fqdn,
-                                        :hostname => fqdn,
-                                        :availability_zone => config[:availability_zone],
-                                        :flavor_id => config[:node_details][fqdn][:flavor_id],
-                                        :image_id => config[:image_id],
-                                        :key_name => config[:keypair],
-                                        :user_data => user_data,
-                                        :tags => { 'Name' => fqdn },
-                                        })
-
-      print "Waiting for instance to be ready..."
-      server.wait_for { ready? }
-      puts "#{role.to_s} is booted, #{server.public_ip_address}/#{server.private_ip_address}"
-
-      if false
-      # create/update the public & private DNS for this host
-      Stack.update_dns(role.to_s + '-public.' + config[:dns_domain], server.public_ip_address, config)
-      Stack.update_dns(role.to_s + '-private.' + config[:dns_domain], server.private_ip_address, config)
-
-      # create the dns
-      if (role_details[:publish_private_ip] == true && (!role_details[:publish_private_ip].nil?))
-        ip_address = server.private_ip_address
-      else
-        ip_address = server.public_ip_address
-      end
-      Stack.update_dns(fqdn, ip_address, config)
-      #
-      # is this a wildcard DNS host, then claim the *.domain.net
-      if (role_details[:dns_wildcard] == true && (!role_details[:dns_wildcard].nil?))
-        wildcard = "*." + config[:dns_domain]
-        Stack.update_dns(wildcard, ip_address, config)
-      end
+        # create the dns
+        if (role_details[:publish_private_ip] == true && (!role_details[:publish_private_ip].nil?))
+          ip_address = server.private_ip_address
+        else
+          ip_address = server.public_ip_address
+        end
+        Stack.update_dns(fqdn, ip_address, config)
+        #
+        # is this a wildcard DNS host, then claim the *.domain.net
+        if (role_details[:dns_wildcard] == true && (!role_details[:dns_wildcard].nil?))
+          wildcard = "*." + config[:dns_domain]
+          Stack.update_dns(wildcard, ip_address, config)
+        end
       end
     end
   end
@@ -148,14 +150,15 @@ module Stack
                           :aws_access_key_id => config[:aws_access_key_id],
                           :aws_secret_access_key => config[:aws_secret_access_key] })
 
-    # pp dns.get_hosted_zone(config[:dns_id])
-
-    bmtw =  dns.zones.get(config[:dns_id])
+    dns.get_hosted_zone(config[:dns_id])
+    bmtw = dns.zones.get(config[:dns_id])
 
     record = bmtw.records.get(fqdn)
     if record
+      Logger.info "Updating #{fqdn} with #{ip_address}"
       record.modify(:value => ip_address) if record
     else
+      Logger.info "Creating #{fqdn} with #{ip_address}"
       bmtw.records.create(:value => ip_address, :name => fqdn, :type => 'A')
     end
   end
